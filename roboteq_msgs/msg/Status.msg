@@ -20,9 +20,9 @@ uint8 STATUS_AT_LIMIT=32
 uint8 STATUS_MICROBASIC_SCRIPT_RUNNING=128
 uint8 status
 
-# Temperature of main logic chip (C)
-float32 ic_temperature
+# Temperature of main logic chip (deg. C)
+int8 ic_temperature
 
-# Internal supply and reference voltage (V)
+# Internal and +5V output voltages (V)
 float32 internal_voltage
-float32 adc_voltage
+float32 vout_voltage

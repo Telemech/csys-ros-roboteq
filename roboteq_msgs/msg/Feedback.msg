@@ -17,8 +17,5 @@ float32 measured_position
 float32 supply_voltage
 float32 supply_current
 
-# Measured temperatures (C)
-# Motor temp is processed from a thermal sensor connected to analog input 1.
-float32 motor_temperature
-# Channel temp is the temperature of the FETs. This is reported by the controller.
-float32 channel_temperature
+# Channel temperature of the FET as reported by the controller (deg. C)
+int8 channel_temperature

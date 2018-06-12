@@ -109,8 +109,7 @@ void Channel::feedbackCallback(std::vector<std::string> fields)
     msg.measured_position = from_encoder_ticks(boost::lexical_cast<double>(fields[6]));
     msg.supply_voltage = boost::lexical_cast<float>(fields[7]) / 10.0;
     msg.supply_current = boost::lexical_cast<float>(fields[8]) / 10.0;
-    msg.motor_temperature = boost::lexical_cast<int>(fields[9]) * 0.020153 - 4.1754;
-    msg.channel_temperature = boost::lexical_cast<int>(fields[10]);
+    msg.channel_temperature = boost::lexical_cast<int>(fields[9]);
   }
   catch (std::bad_cast& e)
   {

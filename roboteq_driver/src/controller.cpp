@@ -83,11 +83,11 @@ void Controller::connect() {
       return;
     } else {
       connected_ = false;
-      ROS_INFO("Bad Connection with serial port Error %s",port_);
+      ROS_WARN("Bad Connection with serial port %s",port_);
     }
   }
 
-  ROS_INFO("Motor controller not responding.");
+  ROS_ERROR("Motor controller not responding.");
 }
 
 void Controller::read() {
@@ -118,18 +118,18 @@ void Controller::read() {
     if (!receiving_script_messages_) {
       if (start_script_attempts_ < 5) {
         start_script_attempts_++;
-        ROS_DEBUG("Attempt #%d to start MBS program.", start_script_attempts_);
+        ROS_INFO("Attempt #%d to start MBS program.", start_script_attempts_);
         startScript();
         flush();
       } else {
-        ROS_DEBUG("Attempting to download MBS program.");
+        ROS_INFO("Attempting to download MBS program.");
         if (downloadScript()) {
           start_script_attempts_ = 0;
         }
         ros::Duration(1.0).sleep();
       }
     } else {
-      ROS_DEBUG("Script is believed to be in-place and running, so taking no action.");
+      ROS_INFO("Script is believed to be in-place and running, so taking no action.");
     }
   }
 }
@@ -209,7 +209,7 @@ void Controller::processFeedback(std::string msg) {
 }
 
 bool Controller::downloadScript() {
-  ROS_DEBUG("Commanding driver to stop executing script.");
+  ROS_INFO("Commanding driver to stop executing script.");
 
   // Stop the running script, flag us to start it up again after..
   stopScript();
@@ -221,7 +221,7 @@ bool Controller::downloadScript() {
   serial_->read();
 
   // Send SLD.
-  ROS_DEBUG("Commanding driver to enter download mode.");
+  ROS_INFO("Commanding driver to enter download mode.");
   write("%SLD 321654987"); flush();
 
   // Look for special ack from SLD.
@@ -230,7 +230,7 @@ bool Controller::downloadScript() {
     ROS_DEBUG_STREAM_NAMED("serial", "HLD-RX: " << msg);
     if (msg == "HLD\r") goto found_ack;
   }
-  ROS_DEBUG("Could not enter download mode.");
+  ROS_ERROR("Could not enter download mode.");
   return false;
   found_ack:
 
@@ -242,7 +242,10 @@ bool Controller::downloadScript() {
     flush();
     std::string ack = serial_->readline(max_line_length, eol);
     ROS_DEBUG_STREAM_NAMED("serial", "ACK-RX: " << ack);
-    if (ack != "+\r") return false;
+    if (ack != "+\r") {
+      ROS_ERROR_STREAM("Error sending script line " << (line_num + 1));
+      return false;
+    }
     line_num++;
   }
   return true;

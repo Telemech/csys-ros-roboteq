@@ -34,8 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace roboteq {
 
 Channel::Channel(int channel_num, std::string ns, Controller* controller) :
-  channel_num_(channel_num), nh_(ns), controller_(controller), max_rpm_(3500),
-  last_mode_(255)
+  channel_num_(channel_num), nh_(ns), controller_(controller), max_rpm_(8000),
+  encoder_ppr_(12), gear_ratio_(50.895f), last_mode_(255)
 {
   sub_cmd_ = nh_.subscribe("cmd", 1, &Channel::cmdCallback, this);
   pub_feedback_ = nh_.advertise<roboteq_msgs::Feedback>("feedback", 1);
@@ -60,7 +60,7 @@ void Channel::cmdCallback(const roboteq_msgs::Command& command)
   if (command.mode == roboteq_msgs::Command::MODE_VELOCITY)
   {
     // Get a -1000 .. 1000 command as a proportion of the maximum RPM.
-    int roboteq_velocity = to_rpm(command.setpoint) / max_rpm_ * 1000.0;
+    int roboteq_velocity = to_encoder_rpm(command.setpoint) / max_rpm_ * 1000.0;
     ROS_DEBUG_STREAM("Commanding " << roboteq_velocity << " velocity to motor driver.");
 
     // Write mode and command to the motor driver.
@@ -68,7 +68,7 @@ void Channel::cmdCallback(const roboteq_msgs::Command& command)
   }
   else if (command.mode == roboteq_msgs::Command::MODE_POSITION)
   {
-    // Convert the commanded position in rads to encoder ticks.
+    // Convert the commanded position in revolutions to encoder ticks.
     int roboteq_position = to_encoder_ticks(command.setpoint);
     ROS_DEBUG_STREAM("Commanding " << roboteq_position << " position to motor driver.");
 
@@ -102,10 +102,10 @@ void Channel::feedbackCallback(std::vector<std::string> fields)
   // see mbs/script.mbs for URL and specific page references.
   try
   {
-    msg.motor_current = boost::lexical_cast<float>(fields[2]) / 10;
-    msg.commanded_velocity = from_rpm(boost::lexical_cast<double>(fields[3]));
+    msg.motor_current = boost::lexical_cast<float>(fields[2]) / 10.0;
+    msg.commanded_velocity = from_encoder_rpm(boost::lexical_cast<double>(fields[3]));
     msg.motor_power = boost::lexical_cast<float>(fields[4]) / 1000.0;
-    msg.measured_velocity = from_rpm(boost::lexical_cast<double>(fields[5]));
+    msg.measured_velocity = from_encoder_rpm(boost::lexical_cast<double>(fields[5]));
     msg.measured_position = from_encoder_ticks(boost::lexical_cast<double>(fields[6]));
     msg.supply_voltage = boost::lexical_cast<float>(fields[7]) / 10.0;
     msg.supply_current = boost::lexical_cast<float>(fields[8]) / 10.0;

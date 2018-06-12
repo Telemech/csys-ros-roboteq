@@ -43,45 +43,45 @@ public:
 
 protected:
   /**
-   * @param x Angular velocity in radians/s.
-   * @return Angular velocity in RPM.
+   * @param x Velocity in RPM (after gearbox).
+   * @return Encoder velocity in RPM.
    */
-  static double to_rpm(double x)
+  double to_encoder_rpm(double x)
   {
-    return x * 60 / (2 * M_PI);
+    return x * gear_ratio_;
   }
 
   /**
-   * @param x Angular velocity in RPM.
-   * @return Angular velocity in rad/s.
+   * @param x Encoder velocity in RPM.
+   * @return Velocity in RPM (after gearbox).
    */
-  static double from_rpm(double x)
+  double from_encoder_rpm(double x)
   {
-    return x * (2 * M_PI) / 60;
+    return x / gear_ratio_;
   }
 
   /**
-   * Conversion of radians to encoder ticks. Note that this assumes a
-   * 1024-line quadrature encoder (hence 4096).
+   * Conversion of revolutions to encoder ticks. Note that this assumes a
+   * quadrature encoder.
    *
-   * @param x Angular position in radians.
+   * @param x Angular position in revolutions.
    * @return Angular position in encoder ticks.
    */
-  static double to_encoder_ticks(double x)
+  double to_encoder_ticks(double x)
   {
-    return x * 4096 / (2 * M_PI);
+    return x * (gear_ratio_ * encoder_ppr_ * 4);
   }
 
   /**
-   * Conversion of encoder ticks to radians. Note that this assumes a
-   * 1024-line quadrature encoder (hence 4096).
+   * Conversion of encoder ticks to revolutions. Note that this assumes a
+   * quadrature encoder.
    *
    * @param x Angular position in encoder ticks.
-   * @return Angular position in radians.
+   * @return Angular position in revolutions.
    */
-  static double from_encoder_ticks(double x)
+  double from_encoder_ticks(double x)
   {
-    return x * (2 * M_PI) / 4096;
+    return x / (gear_ratio_ * encoder_ppr_ * 4);
   }
 
   void cmdCallback(const roboteq_msgs::Command&);
@@ -90,7 +90,9 @@ protected:
   ros::NodeHandle nh_;
   boost::shared_ptr<Controller> controller_;
   int channel_num_;
-  float max_rpm_;
+  int max_rpm_;
+  int encoder_ppr_;
+  float gear_ratio_;
 
   ros::Subscriber sub_cmd_;
   ros::Publisher pub_feedback_;

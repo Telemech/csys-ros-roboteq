@@ -7,10 +7,11 @@ float32 motor_current
 # Output stage, as a proportion of full (-1..1)
 float32 motor_power
 
-# Commanded and measured speed of the motors (rad/s)
-# Position is reported in rads, and wraps around +-6M
+# Commanded and measured speed of the motors after gearbox (RPM)
 float32 commanded_velocity
 float32 measured_velocity
+
+# Measured position after gearbox (revolutions)
 float32 measured_position
 
 # Electrical power supply to the driver (V, A)

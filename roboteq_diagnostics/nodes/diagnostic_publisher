@@ -162,7 +162,7 @@ class RoboteqDiagnostics():
         #Motor RPM
         self.motor_rpm = DiagnosticStatus(name=self.motor_desc + " Motor Velocity", level = DiagnosticStatus.OK, message="OK")
         rpm = data.measured_velocity
-        self.motor_rpm.values = [KeyValue(self.motor_desc + " rad/s",str(rpm))]
+        self.motor_rpm.values = [KeyValue(self.motor_desc + " RPM",str(rpm))]
         
         #Supply Volt
         self.supply_volt = DiagnosticStatus(name=self.motor_desc + " Supply Voltage", level=DiagnosticStatus.OK, message="OK")

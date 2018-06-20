@@ -1,86 +1,180 @@
 ' Require all variables to be declared
 Option Explicit
 
-' Variable declarations
-Dim SCRIPT_VER as Integer
-Dim NUM_CHANNELS as Integer
-Dim FEEDBACK_PERIOD_MS as Integer
-Dim STATUS_PERIOD_MS as Integer
-Dim channel as Integer
-Dim prev_mode[2] As Integer
-Dim mode as Integer
-Dim status_counter as Integer
-
 ' Constants
-SCRIPT_VER=1
-NUM_CHANNELS=2
-FEEDBACK_PERIOD_MS=20
-STATUS_PERIOD_MS=100
+#define SCRIPT_VER					1
+#define NUM_CHANNELS				2
+#define STATE_SERIAL_CTRL			0
+#define STATE_RADIO_CTRL			1
+#define STATE_WAIT_STOP				2
+#define COMMAND_STOP				-1
+#define COMMAND_SPEED_CTRL			0
+#define COMMAND_POS_CTRL			1
+#define COMMAND_MIN					COMMAND_STOP
+#define COMMAND_MAX					COMMAND_POS_CTRL
+#define PULSE_CUTOFF_WIDTH_LOW_US 	1125
+#define PULSE_CUTOFF_WIDTH_HIGH_US	1175
+#define UPDATE_TIMER				0
+#define WAIT_STOP_TIMER				1
+#define UPDATE_PERIOD_MS			20
+#define WAIT_STOP_TIMEOUT_MS		5000
+#define STATUS_PERIOD_MS			100
+#define STATUS_CNTR_RELOAD_VALUE	STATUS_PERIOD_MS / UPDATE_PERIOD_MS
+
+' Variable declarations
+Dim state As Integer
+Dim channel As Integer
+Dim command As Integer
+Dim prev_command[NUM_CHANNELS] as Integer
+Dim pulse_width As Integer
+Dim stopped As Boolean
+Dim status_cntr As Integer
+
 SetConfig(_ECHOF, 1)	' disable echo
 SetConfig(_SCRO, 1)		' select serial port for Print statements
 
-' Mode values are:
-'   -1: stopped
-'    0: closed loop speed mode
-'    1: closed loop count position mode
-' which correspond to the constants in roboteq_msgs/Command.
-' The user variable VAR[x] is used to set the current mode for channel x.
-' Here, we set prev_mode and VAR to cause a transition into stop mode at
-' startup.
-For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
-	prev_mode[channel - 1] = -127
-	SetCommand(_VAR, channel, -1)
-Next
+' Reset
+GoSub Reset
 
 ' Main loop
-status_counter = STATUS_PERIOD_MS / FEEDBACK_PERIOD_MS
+status_cntr = STATUS_CNTR_RELOAD_VALUE
 While True
-	SetTimerCount(0, FEEDBACK_PERIOD_MS)
-	SetTimerState(0, 0)		' start
+	' Start timer
+	SetTimerCount(UPDATE_TIMER, UPDATE_PERIOD_MS)
+	SetTimerState(UPDATE_TIMER, 0)
 
-	For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
-		mode = GetValue(_VAR, channel)
-		If mode <> prev_mode[channel - 1] Then
-			If mode = 0 Then
-				' closed loop speed mode
-				SetConfig(_MMOD, channel, 1)
-				SetConfig(_KP, channel, 0)
-				SetConfig(_KI, channel, 10)
-				SetConfig(_KD, channel, 0)
-				SetConfig(_ICAP, channel, 100)
-			ElseIf mode = 1 Then
-				' closed loop count position mode
-				SetConfig(_MMOD, channel, 3)
-				SetConfig(_KP, channel, 20)
-				SetConfig(_KI, channel, 0)
-				SetConfig(_KD, channel, 0)
-				SetConfig(_ICAP, channel, 0)
-			Else
-				' stop
-				SetConfig(_MMOD, channel, 1)
-				SetConfig(_KP, channel, 0)
-				SetConfig(_KI, channel, 0)
-				SetConfig(_KD, channel, 0)
-				SetConfig(_ICAP, channel, 0)
-				SetCommand(_G, channel, 0)
-			End If
+	' Read current width of RC pulse input
+	pulse_width = GetValue(_PLSIN, 3)
 
-			prev_mode[channel - 1] = mode
+	If state = STATE_SERIAL_CTRL Then
+		If pulse_width > PULSE_CUTOFF_WIDTH_HIGH_US Then
+			For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+				' Set open-loop mode
+				SetConfig(_MMOD, channel, 0)
+			Next
+
+			' Set priority: 1st = RC, 2nd = serial
+			SetConfig(_CPRI, 1, 1)
+			SetConfig(_CPRI, 2, 0)
+
+			state = STATE_RADIO_CTRL
+		Else
+			For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+				command = GetValue(_VAR, channel)
+				If command <> prev_command[channel - 1] Then
+					GoSub SetParams
+					prev_command[channel - 1] = command
+				End If
+			Next
 		End If
+	ElseIf state = STATE_RADIO_CTRL Then
+		If pulse_width < PULSE_CUTOFF_WIDTH_LOW_US Then
+			For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+				' Set open-loop mode
+				SetConfig(_MMOD, channel, 0)
+				' Set zero motor power
+				SetCommand(_G, channel, 0)
+			Next
 
-		' Print feedback for this channel
+			' Disable all command sources temporarily
+			SetConfig(_CPRI, 1, 4)
+			SetConfig(_CPRI, 2, 4)
+
+			' Start timer
+			SetTimerCount(WAIT_STOP_TIMER, WAIT_STOP_TIMEOUT_MS)
+			SetTimerState(WAIT_STOP_TIMER, 0)
+
+			state = STATE_WAIT_STOP
+		End If
+	ElseIf state = STATE_WAIT_STOP
+		' Check if all channels have stopped
+		stopped = True
+		For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+			If GetValue(_ABSPEED, channel) <> 0
+				stopped = False
+				Exit For
+			End If
+		Next
+
+		' Check if stopped or timeout has expired
+		If stopped Or GetTimerCount(WAIT_STOP_TIMER) = 0 Then
+			' Go to commanded mode
+			For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+				command = GetValue(_VAR, channel)
+				GoSub SetParams
+				prev_command[channel - 1] = command
+			Next
+
+			' Set priority: 1st = serial, 2nd = RC
+			SetConfig(_CPRI, 1, 0)
+			SetConfig(_CPRI, 2, 1)
+
+			state = STATE_SERIAL_CTRL
+		End If
+	Else
+		GoSub Reset
+	End If
+
+	' Print channel feedback
+	For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
 		GoSub PrintFeedback
 	Next
 
 	' Print controller status
-	status_counter--
-	If status_counter = 0 Then
+	status_cntr--
+	If status_cntr = 0 Then
 		GoSub PrintStatus
-		status_counter = STATUS_PERIOD_MS / FEEDBACK_PERIOD_MS
+		status_cntr = STATUS_CNTR_RELOAD_VALUE
 	End If
 
-	Wait(GetTimerCount(0))
+	' Delay until next update time
+	Wait(GetTimerCount(UPDATE_TIMER))
 End While
+
+Reset:
+	' Stop all channels
+	For channel = 1 AndWhile channel <= NUM_CHANNELS Evaluate channel++
+		command = COMMAND_STOP
+		SetCommand(_VAR, channel, command)
+		GoSub SetParams
+		prev_command[channel - 1] = command
+	Next
+
+	' Set priority: 1st = serial, 2nd = RC
+	SetConfig(_CPRI, 1, 0)
+	SetConfig(_CPRI, 2, 1)
+
+	state = STATE_SERIAL_CTRL
+	Return
+
+SetParams:
+	If command < COMMAND_MIN Or command > COMMAND_MAX Then
+		command = COMMAND_STOP
+	End If
+
+	If command = COMMAND_STOP Then
+		' Set open-loop mode
+		SetConfig(_MMOD, channel, 0)
+		' Set zero motor power
+		SetCommand(_G, channel, 0)
+	ElseIf command = COMMAND_SPEED_CTRL Then
+		' Set closed-loop speed mode
+		SetConfig(_MMOD, channel, 1)
+		' Set PID parameters
+		SetConfig(_KP, channel, 0)
+		SetConfig(_KI, channel, 10)
+		SetConfig(_KD, channel, 0)
+		SetConfig(_ICAP, channel, 100)
+	ElseIf command = COMMAND_POS_CTRL Then
+		' Set closed-loop position mode
+		SetConfig(_MMOD, channel, 3)
+		' Set PID parameters
+		SetConfig(_KP, channel, 20)
+		SetConfig(_KI, channel, 0)
+		SetConfig(_KD, channel, 0)
+		SetConfig(_ICAP, channel, 0)
+	End If
+	Return
 
 PrintFeedback:
 	Print("&f")
@@ -106,3 +200,4 @@ PrintStatus:
 	Print(":", GetValue(_TEMP, 1))
 	Print("\r")
 	Return
+

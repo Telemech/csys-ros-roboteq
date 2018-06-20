@@ -35,7 +35,7 @@ namespace roboteq {
 
 Channel::Channel(int channel_num, std::string ns, std::string cmd_topic, std::string fb_topic, Controller* controller) :
   channel_num_(channel_num), nh_(ns), controller_(controller), max_rpm_(8000),
-  encoder_ppr_(12), gear_ratio_(50.895f), last_mode_(255)
+  encoder_ppr_(12), gear_ratio_(26.851f), last_mode_(255)
 {
   sub_cmd_ = nh_.subscribe(cmd_topic, 1, &Channel::cmdCallback, this);
   pub_feedback_ = nh_.advertise<roboteq_msgs::Feedback>(fb_topic, 1);

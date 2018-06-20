@@ -38,7 +38,7 @@ class Controller;
 
 class Channel {
 public:
-  Channel(int channel_num, std::string ns, Controller* controller);
+  Channel(int channel_num, std::string ns, std::string cmd_topic, std::string fb_topic, Controller* controller);
   void feedbackCallback(std::vector<std::string>);
 
 protected:

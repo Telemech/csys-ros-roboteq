@@ -49,11 +49,12 @@ int main(int argc, char **argv) {
     for (int i = 0; i < channel_namespaces.size(); ++i) 
     {
       ROS_ASSERT(channel_namespaces[i].getType() == XmlRpc::XmlRpcValue::TypeString);
-      controller.addChannel(new roboteq::Channel(1 + i, channel_namespaces[i], &controller));
+      controller.addChannel(new roboteq::Channel(1 + i, channel_namespaces[i], "command", "feedback", &controller));
     }
   } else {
-    // Default configuration is a single channel in the node's namespace.
-    controller.addChannel(new roboteq::Channel(1, "~", &controller));
+    // Default configuration is two channels in the node's namespace.
+    controller.addChannel(new roboteq::Channel(1, "~", "left_command", "left_feedback", &controller));
+    controller.addChannel(new roboteq::Channel(2, "~", "right_command", "right_feedback", &controller));
   } 
 
   // Attempt to connect and run.

@@ -33,12 +33,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace roboteq {
 
-Channel::Channel(int channel_num, std::string ns, Controller* controller) :
+Channel::Channel(int channel_num, std::string ns, std::string cmd_topic, std::string fb_topic, Controller* controller) :
   channel_num_(channel_num), nh_(ns), controller_(controller), max_rpm_(8000),
   encoder_ppr_(12), gear_ratio_(50.895f), last_mode_(255)
 {
-  sub_cmd_ = nh_.subscribe("cmd", 1, &Channel::cmdCallback, this);
-  pub_feedback_ = nh_.advertise<roboteq_msgs::Feedback>("feedback", 1);
+  sub_cmd_ = nh_.subscribe(cmd_topic, 1, &Channel::cmdCallback, this);
+  pub_feedback_ = nh_.advertise<roboteq_msgs::Feedback>(fb_topic, 1);
 
   // Don't start this timer until we've received the first motion command, otherwise it
   // can interfere with code download on device startup.

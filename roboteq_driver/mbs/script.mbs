@@ -12,8 +12,8 @@ Option Explicit
 #define COMMAND_POS_CTRL			1
 #define COMMAND_MIN					COMMAND_STOP
 #define COMMAND_MAX					COMMAND_POS_CTRL
-#define PULSE_CUTOFF_WIDTH_LOW_US 	1125
-#define PULSE_CUTOFF_WIDTH_HIGH_US	1175
+#define PULSE_CUTOFF_WIDTH_LOW_US 	1025
+#define PULSE_CUTOFF_WIDTH_HIGH_US	1050
 #define UPDATE_TIMER				0
 #define WAIT_STOP_TIMER				1
 #define UPDATE_PERIOD_MS			20
@@ -105,9 +105,9 @@ While True
 				prev_command[channel - 1] = command
 			Next
 
-			' Set priority: 1st = serial, 2nd = RC
+			' Set priority: 1st = serial, 2nd = none
 			SetConfig(_CPRI, 1, 0)
-			SetConfig(_CPRI, 2, 1)
+			SetConfig(_CPRI, 2, 4)
 
 			state = STATE_SERIAL_CTRL
 		End If

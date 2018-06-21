@@ -53,8 +53,8 @@ int main(int argc, char **argv) {
     }
   } else {
     // Default configuration is two channels in the node's namespace.
-    controller.addChannel(new roboteq::Channel(1, "~", "left_command", "left_feedback", &controller));
-    controller.addChannel(new roboteq::Channel(2, "~", "right_command", "right_feedback", &controller));
+    controller.addChannel(new roboteq::Channel(1, "~", "right_command", "right_feedback", &controller));
+    controller.addChannel(new roboteq::Channel(2, "~", "left_command", "left_feedback", &controller));
   } 
 
   // Attempt to connect and run.
